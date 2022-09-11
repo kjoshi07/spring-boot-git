@@ -1,0 +1,15 @@
+version: '2'
+services:
+  git-repo:
+    container_name: git-repo
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: git-repo:latest
+    ports:
+      - 8080:8080
+    networks:
+      - git-repo-network
+networks:
+  git-repo-network:
+    driver: bridge
