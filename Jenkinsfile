@@ -46,5 +46,23 @@ pipeline {
                  }
             }
         }
+        stage('ECR Image Build & Push') {
+            steps {
+                script {
+                    if (isUnix()) {
+                        // just to trigger the integration test without unit testing
+                        sh "aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 278875135895.dkr.ecr.us-west-1.amazonaws.com"
+                        sh "docker build -t kj007/git-repo ."
+                        sh "docker tag kj007/git-repo:latest 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest"
+                        sh "docker push 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest"
+                    } else {
+                        bat(/aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 278875135895.dkr.ecr.us-west-1.amazonaws.com/)
+                        bat(/docker build -t kj007/git-repo ./)
+                        bat(/docker tag kj007/git-repo:latest 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest/)
+                        bat(/docker push 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest/)
+                    }
+                }
+            }
+        }
     }
 }
