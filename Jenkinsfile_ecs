@@ -1,11 +1,4 @@
 pipeline {
-    environment {
-        REPOSITORY_URI = '278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo'
-        SERVICE_NAME = 'git-repo'
-        CLUSTER_NAME = 'MyFargateCluster'
-        TASK_FAMILY="git-repo"
-        DESIRED_COUNT=1
-    }
     agent any
 
     triggers {
@@ -68,22 +61,6 @@ pipeline {
                         bat 'docker tag kj007/git-repo:latest 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest'
                         bat 'docker push 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest'
                     }
-                }
-            }
-        }
-        stage('Deploy Image to ECS') {
-            steps{
-                // prepare task definition file
-
-                //sh """sed -e "s;%REPOSITORY_URI%;${REPOSITORY_URI};g" -e "s;%SHORT_COMMIT%;${SHORT_COMMIT};g" -e "s;%TASK_FAMILY%;${TASK_FAMILY};g" -e "s;%SERVICE_NAME%;${SERVICE_NAME};g" -e "s;%EXECUTION_ROLE_ARN%;${EXECUTION_ROLE_ARN};g" taskdef_template.json > taskdef_${SHORT_COMMIT}.json"""
-                script {
-                    // Register task definition
-                    bat 'ecs register-task-definition --output json --cli-input-json file://${WORKSPACE}/template_task_definition_git_service.yaml > ${env.WORKSPACE}/temp.yaml'
-                    def projects = readJSON file: "${env.WORKSPACE}/temp.yaml"
-                    def TASK_REVISION = projects.taskDefinition.revision
-
-                    // update service
-                    AWS("ecs update-service --cluster ${CLUSTER_NAME} --service ${SERVICE_NAME} --task-definition ${TASK_FAMILY}:${TASK_REVISION} --desired-count ${DESIRED_COUNT}")
                 }
             }
         }

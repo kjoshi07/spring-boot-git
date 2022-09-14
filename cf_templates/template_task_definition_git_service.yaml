@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template for creating a task definition"
+Resources:
+  MyTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Family: git-repo
+    DeletionPolicy: Retain
+    Properties:
+      RequiresCompatibilities:
+        - "FARGATE"
+      ExecutionRoleArn: "arn:aws:iam::278875135895:role/ecsTaskExecutionRole"
+      Cpu: 256
+      Memory: 512
+      NetworkMode: "awsvpc"
+      ContainerDefinitions:
+        - Name: "git-consumer-microservice"
+          Image: "278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest"
+          MemoryReservation: 256
+          Memory: 512
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
