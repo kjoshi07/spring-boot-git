@@ -78,7 +78,7 @@ pipeline {
                 //sh """sed -e "s;%REPOSITORY_URI%;${REPOSITORY_URI};g" -e "s;%SHORT_COMMIT%;${SHORT_COMMIT};g" -e "s;%TASK_FAMILY%;${TASK_FAMILY};g" -e "s;%SERVICE_NAME%;${SERVICE_NAME};g" -e "s;%EXECUTION_ROLE_ARN%;${EXECUTION_ROLE_ARN};g" taskdef_template.json > taskdef_${SHORT_COMMIT}.json"""
                 script {
                     // Register task definition
-                    bat 'ecs register-task-definition --output json --cli-input-json file://${WORKSPACE}/template_task_definition_git_service.yaml > ${env.WORKSPACE}/temp.yaml'
+                    bat 'ecs register-task-definition --output json --cli-input-json file://${WORKSPACE}/cf_templates/template_task_definition_git_service.yaml > ${env.WORKSPACE}/temp.yaml'
                     def projects = readJSON file: "${env.WORKSPACE}/temp.yaml"
                     def TASK_REVISION = projects.taskDefinition.revision
 
