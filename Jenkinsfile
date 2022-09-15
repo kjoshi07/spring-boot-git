@@ -1,89 +1,45 @@
 pipeline {
-    environment {
-        REPOSITORY_URI = '278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo'
-        SERVICE_NAME = 'gir-service-stack-MyECSService-tr49dIcYiRTB'
-        CLUSTER_NAME = 'MyFargateCluster'
-        TASK_DEFINITION="gir-service-stack-MyTaskDefinition-tT4VsQlHzdkr"
-        DESIRED_COUNT=1
-    }
     agent any
-
-    triggers {
-        pollSCM 'H * * * *'
+    environment {
+        AWS_ACCOUNT_ID="278875135895"
+        AWS_DEFAULT_REGION="us-west-1"
+        IMAGE_REPO_NAME="kj007/git-repo"
+        IMAGE_TAG="latest"
+        REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}"
     }
+
     stages {
-        stage('Build') {
-            steps {
-                script {
-                    echo 'Pulling...' + env.BRANCH_NAME
-                    //def mvnHome = tool 'Maven 3.5.2'
-                    if (isUnix()) {
-                        def targetVersion = getDevVersion()
-                        print 'target build version...'
-                        print targetVersion
-                        sh "mvn -Dintegration-tests.skip=true -Dbuild.number=${targetVersion} clean package"
-                        def pom = readMavenPom file: 'pom.xml'
-                        // get the current development version
-                        developmentArtifactVersion = "${pom.version}-${targetVersion}"
-                        print pom.version
-                        // execute the unit testing and collect the reports
-                        junit '**//*target/surefire-reports/TEST-*.xml'
-                        archive 'target*//*.jar'
-                    } else {
-                        bat(/mvn -Dintegration-tests.skip=true clean package/)
-                        def pom = readMavenPom file: 'pom.xml'
-                        print pom.version
-                        junit '**//*target/surefire-reports/TEST-*.xml'
-                        archive 'target*//*.jar'
-                    }
-                }
-            }
-        }
-        stage('Test') {
-            steps {
-                 script {
-                     //def mvnHome = tool 'Maven 3.5.2'
-                     if (isUnix()) {
-                         // just to trigger the integration test without unit testing
-                         sh "mvn  verify -Dunit-tests.skip=true"
-                     } else {
-                         bat(/mvn verify -Dunit-tests.skip=true/)
-                     }
 
-                 }
-            }
-        }
-        stage('ECR Image Build & Push') {
+        stage('Logging into AWS ECR') {
             steps {
                 script {
-                    if (isUnix()) {
-                        // just to trigger the integration test without unit testing
-                        sh "aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 278875135895.dkr.ecr.us-west-1.amazonaws.com"
-                        sh "docker build -t kj007/git-repo ."
-                        sh "docker tag kj007/git-repo:latest 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest"
-                        sh "docker push 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest"
-                    } else {
-                        bat 'aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 278875135895.dkr.ecr.us-west-1.amazonaws.com'
-                        bat 'docker build -t kj007/git-repo .'
-                        bat 'docker tag kj007/git-repo:latest 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest'
-                        bat 'docker push 278875135895.dkr.ecr.us-west-1.amazonaws.com/kj007/git-repo:latest'
-                    }
+                    sh "aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
                 }
+
             }
         }
-        stage('Deploy Image to ECS') {
+
+        stage('Cloning Git') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '', url: 'https://github.com/kjoshi07/spring-boot-git.git']]])
+            }
+        }
+
+        // Building Docker images
+        stage('Building image') {
             steps{
-                // prepare task definition file
-
-                //sh """sed -e "s;%REPOSITORY_URI%;${REPOSITORY_URI};g" -e "s;%SHORT_COMMIT%;${SHORT_COMMIT};g" -e "s;%TASK_FAMILY%;${TASK_FAMILY};g" -e "s;%SERVICE_NAME%;${SERVICE_NAME};g" -e "s;%EXECUTION_ROLE_ARN%;${EXECUTION_ROLE_ARN};g" taskdef_template.json > taskdef_${SHORT_COMMIT}.json"""
                 script {
-                    // Register task definition
-                    bat 'ecs register-task-definition --output json --cli-input-yaml ./cf_templates/template_task_definition_git_service.yaml > ./temp.yaml'
-                   // def projects = readJSON file: "./temp.yaml"
-                    //def TASK_REVISION = projects.taskDefinition.revision
+                    dockerImage = docker.build "${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
 
-                    // update service
-                    bat 'aws ecs update-service --cluster ${CLUSTER_NAME} --service ${SERVICE_NAME} --task-definition ${TASK_DEFINITION}:1 --desired-count ${DESIRED_COUNT}'
+        // Uploading Docker images into AWS ECR
+        stage('Pushing to ECR') {
+            steps{
+                script {
+                    sh "docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:$IMAGE_TAG"
+                    sh "docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
                 }
             }
         }
