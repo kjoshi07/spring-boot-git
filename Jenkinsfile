@@ -25,6 +25,35 @@ pipeline {
             }
         }
 
+        stage('Build') {
+            steps {
+                script {
+                    echo 'Pulling...' + env.BRANCH_NAME
+                        def targetVersion = getDevVersion()
+                        print 'target build version...'
+                        print targetVersion
+                        sh "mvn -Dintegration-tests.skip=true -Dbuild.number=${targetVersion} clean package"
+                        def pom = readMavenPom file: 'pom.xml'
+                        // get the current development version
+                        developmentArtifactVersion = "${pom.version}-${targetVersion}"
+                        print pom.version
+                        // execute the unit testing and collect the reports
+                        junit '**//*target/surefire-reports/TEST-*.xml'
+                        archive 'target*//*.jar'
+                    }
+                }
+            }
+        stage('Test') {
+            steps {
+                script {
+                        // just to trigger the integration test without unit testing
+                        sh "mvn  verify -Dunit-tests.skip=true"
+                    }
+
+                }
+            }
+        }
+
         // Building Docker images
         stage('Building image') {
             steps{
