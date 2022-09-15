@@ -19,12 +19,6 @@ pipeline {
             }
         }
 
-        stage('Cloning Git') {
-            steps {
-                checkout([$class: 'GitSCM', branches: [[name: '*/main']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '', url: 'https://github.com/kjoshi07/spring-boot-git.git']]])
-            }
-        }
-
         stage('Build') {
             steps {
                 script {
