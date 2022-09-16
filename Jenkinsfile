@@ -5,6 +5,10 @@ pipeline {
         AWS_DEFAULT_REGION="us-west-1"
         IMAGE_REPO_NAME="kj007/git-repo"
         IMAGE_TAG="latest"
+        CLUSTER_NAME="MyFargateCluster"
+        SERVICE_NAME="gir-service-stack-MyECSService-tr49dIcYiRTB"
+        TASK_DEFINITION="gir-service-stack-MyTaskDefinition-tT4VsQlHzdkr"
+        DESIRED_COUNT=1
         REPOSITORY_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}"
     }
 
@@ -25,8 +29,6 @@ pipeline {
                     echo 'Pulling...' + env.BRANCH_NAME
                         sh "mvn -Dintegration-tests.skip=true clean package"
                         def pom = readMavenPom file: 'pom.xml'
-                        // get the current development version
-                        //developmentArtifactVersion = "${pom.version}-${targetVersion}"
                         print pom.version
                         // execute the unit testing and collect the reports
                         junit '**//*target/surefire-reports/TEST-*.xml'
@@ -59,6 +61,16 @@ pipeline {
                 script {
                     sh "docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:$IMAGE_TAG"
                     sh "docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        //Deploy to ECS Cluster.
+
+        stage('Deploy to ECS') {
+            steps{
+                script {
+                    sh "aws ecs update-service --cluster ${CLUSTER_NAME} --service ${SERVICE_NAME} --task-definition ${TASK_DEFINITION}:${DESIRED_COUNT} --desired-count ${DESIRED_COUNT}"
                 }
             }
         }
